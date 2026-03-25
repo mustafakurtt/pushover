@@ -1,0 +1,4 @@
+export const RATE_LIMIT_DEFAULTS = {
+  MAX_PER_INTERVAL: 30,
+  INTERVAL_MS: 60_000,
+} as const

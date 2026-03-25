@@ -7,10 +7,15 @@ Modern, TypeScript-first [Pushover](https://pushover.net/) API client. Zero depe
 Other Pushover packages are just thin wrappers — you still write the same boilerplate every time. This one is different:
 
 - **Semantic methods** — `.success()`, `.error()`, `.warning()`, `.info()`, `.emergency()` with smart defaults
-- **String shorthand** — `pushover.send('Deploy done!')` — no object needed for simple messages
+- **Fluent builder** — `pushover.message('text').to('iphone').withSound('siren').send()`
+- **Message queue** — batch multiple notifications and flush at once
+- **Rate limiting** — built-in sliding window protection
+- **Auto-retry** — exponential backoff on failures
+- **Limit checker** — check your remaining monthly quota via API
+- **String shorthand** — `pushover.send('Deploy done!')` — no object needed
 - **One-liner `notify()`** — fire-and-forget without creating a client instance
 - **Factory function** — `createPushover()` — no `new` keyword
-- **Default config** — set `defaultSound`, `defaultDevice`, `defaultTitle` once, forget forever
+- **Default config** — set `defaultSound`, `defaultDevice`, `defaultTitle` once
 - **Full TypeScript** — strict types, autocomplete everything
 - **Zero dependencies** — native `fetch`, no bloat
 
@@ -22,6 +27,14 @@ push.send({ message: 'done', title: 'Deploy', sound: 'magic', priority: 0 }, cal
 // This package
 const pushover = createPushover({ token: '...', user: '...' })
 await pushover.success('Deploy done!')
+
+// Or with fluent builder
+await pushover
+  .message('Server down!')
+  .to('iphone')
+  .withSound('siren')
+  .withPriority(1)
+  .send()
 ```
 
 ## Installation
@@ -71,6 +84,100 @@ await notify(
 )
 ```
 
+### Fluent Builder (Method Chaining)
+
+Build notifications step-by-step with full IDE autocomplete:
+
+```typescript
+await pushover
+  .message('CPU usage above 95%')
+  .title('Server Alert')
+  .to('iphone')
+  .withSound('siren')
+  .withPriority(1)
+  .withUrl('https://monitor.example.com', 'View Dashboard')
+  .send()
+
+// Emergency with retry
+await pushover
+  .message('All replicas are down!')
+  .withPriority(2)
+  .retry(60)
+  .expire(3600)
+  .send()
+
+// HTML content
+await pushover
+  .message('<b>Bold</b> and <i>italic</i>')
+  .html()
+  .send()
+```
+
+### Message Queue (Batch Sending)
+
+Queue multiple messages and send them all at once:
+
+```typescript
+pushover
+  .queue('Backup started')
+  .queue('Database optimized')
+  .queue({ message: 'Backup completed', title: 'Backup' })
+
+console.log(pushover.queueSize) // 3
+
+const result = await pushover.flush()
+console.log(result.succeeded.length) // 3
+console.log(result.failed.length)    // 0
+```
+
+### Rate Limiting
+
+Protect against accidentally exceeding API limits:
+
+```typescript
+const pushover = createPushover({
+  token: 'YOUR_APP_TOKEN',
+  user: 'YOUR_USER_KEY',
+  rateLimit: {
+    maxPerInterval: 10,   // max 10 messages
+    intervalMs: 60_000,   // per minute
+  },
+})
+
+// 11th message within a minute throws PushoverValidationError
+```
+
+### Auto-Retry with Exponential Backoff
+
+Automatically retry failed requests:
+
+```typescript
+const pushover = createPushover({
+  token: 'YOUR_APP_TOKEN',
+  user: 'YOUR_USER_KEY',
+  retry: {
+    maxAttempts: 3,        // try up to 3 times
+    baseDelayMs: 1000,     // 1s → 2s → 4s (exponential)
+    maxDelayMs: 30_000,    // cap at 30s
+  },
+})
+
+// If API is temporarily down, it will retry automatically
+await pushover.send('This will retry on failure')
+```
+
+### Check Monthly Limits
+
+Check your app's remaining monthly message quota:
+
+```typescript
+const limits = await pushover.limits()
+
+console.log(limits.limit)     // 10000 (monthly limit)
+console.log(limits.remaining) // 9500  (remaining this month)
+console.log(limits.reset)     // Unix timestamp when limit resets
+```
+
 ### Default Config
 
 ```typescript
@@ -84,26 +191,6 @@ const pushover = createPushover({
 
 // Every notification will use these defaults unless overridden
 await pushover.send('Uses default sound, device, and title')
-```
-
-### Full Control
-
-```typescript
-import { PushoverClient, PushoverSound, PushoverPriority } from '@mustafakurtt/pushover'
-
-const pushover = new PushoverClient({
-  token: 'YOUR_APP_TOKEN',
-  user: 'YOUR_USER_KEY',
-})
-
-await pushover.send({
-  message: 'Server CPU usage above 90%',
-  title: 'Server Alert',
-  priority: PushoverPriority.HIGH,
-  sound: PushoverSound.SIREN,
-  url: 'https://monitor.example.com',
-  urlTitle: 'View Dashboard',
-})
 ```
 
 ### Semantic Methods with Options
@@ -124,15 +211,15 @@ await pushover.emergency('All replicas are down!', {
 ### Error Handling
 
 ```typescript
-import { PushoverError, PushoverValidationError } from '@mustafakurtt/pushover'
+import { PushoverApiError, PushoverValidationError } from '@mustafakurtt/pushover'
 
 try {
   await pushover.send('Hello!')
 } catch (err) {
   if (err instanceof PushoverValidationError) {
-    console.error('Validation:', err.message)
-  } else if (err instanceof PushoverError) {
-    console.error('API:', err.errors)
+    console.error('Validation:', err.message, err.field)
+  } else if (err instanceof PushoverApiError) {
+    console.error('API:', err.apiErrors, err.code)
   }
 }
 ```
@@ -160,6 +247,10 @@ All semantic methods accept an optional second argument to override any field.
 | `defaultDevice` | `string` | No | Default target device |
 | `defaultSound` | `PushoverSound` | No | Default notification sound |
 | `defaultTitle` | `string` | No | Default notification title |
+| `fetchFn` | `FetchFunction` | No | Custom fetch for testing (DI) |
+| `retry` | `RetryConfig` | No | Auto-retry configuration |
+| `rateLimit` | `RateLimitConfig` | No | Rate limiting configuration |
+| `queue` | `QueueConfig` | No | Message queue configuration |
 
 ### `send(message)`
 
@@ -178,6 +269,18 @@ Accepts a `string` or a `PushoverMessage` object:
 | `timestamp` | `number` | No | Unix timestamp |
 | `retry` | `number` | No | Emergency retry interval (sec, min 30) |
 | `expire` | `number` | No | Emergency expiry (sec, max 10800) |
+
+### `message(text)` → `MessageBuilder`
+
+Fluent builder methods: `.title()`, `.to()`, `.withSound()`, `.withPriority()`, `.withUrl()`, `.html()`, `.timestamp()`, `.retry()`, `.expire()`, `.send()`
+
+### `queue(message)` / `flush()`
+
+Queue messages and send them in batch. Returns `QueueResult` with `succeeded` and `failed` arrays.
+
+### `limits()`
+
+Returns `PushoverLimitsResponse` with `limit`, `remaining`, and `reset` fields.
 
 ### `notify(config, message)`
 

@@ -1,0 +1,5 @@
+export const QUEUE_DEFAULTS = {
+  MAX_SIZE: 100,
+  AUTO_FLUSH_SIZE: 10,
+  AUTO_FLUSH_INTERVAL_MS: 5_000,
+} as const

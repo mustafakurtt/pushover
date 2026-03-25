@@ -1,0 +1,6 @@
+export const RETRY_DEFAULTS = {
+  MAX_ATTEMPTS: 3,
+  BASE_DELAY_MS: 1000,
+  MAX_DELAY_MS: 30_000,
+  BACKOFF_MULTIPLIER: 2,
+} as const

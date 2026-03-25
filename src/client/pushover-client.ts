@@ -11,13 +11,24 @@ import type { PushoverEmergencyMessage, PushoverMessage, PushoverShortMessage } 
 import type { PushoverResponse } from '../types/response.types.ts'
 import type { FetchFunction } from '../types/common.types.ts'
 import type { SemanticLevel } from '../types/semantic.types.ts'
+import type { PushoverLimitsResponse } from '../types/limits.types.ts'
+import type { QueueResult } from '../types/queue.types.ts'
 import { ConfigValidator } from '../validators/config.validator.ts'
 import { MessageValidator } from '../validators/message.validator.ts'
 import { RequestBuilder } from './request-builder.ts'
+import { RetryHandler } from './retry-handler.ts'
+import { RateLimiter } from './rate-limiter.ts'
+import { MessageBuilder } from './message-builder.ts'
+import { MessageQueue } from './message-queue.ts'
+import { LimitChecker } from './limit-checker.ts'
 
 export class PushoverClient {
   private readonly requestBuilder: RequestBuilder
   private readonly fetchFn: FetchFunction
+  private readonly retryHandler: RetryHandler | null
+  private readonly rateLimiter: RateLimiter | null
+  private readonly limitChecker: LimitChecker
+  private readonly messageQueue: MessageQueue
 
   constructor(config: PushoverConfig) {
     ConfigValidator.validate(config)
@@ -28,13 +39,76 @@ export class PushoverClient {
       sound: config.defaultSound,
       title: config.defaultTitle,
     })
+
+    this.retryHandler = config.retry ? new RetryHandler(config.retry) : null
+    this.rateLimiter = config.rateLimit ? new RateLimiter(config.rateLimit) : null
+    this.limitChecker = new LimitChecker(config.token, this.fetchFn)
+    this.messageQueue = new MessageQueue(
+      (msg: PushoverMessage) => this.executeSend(msg),
+      config.queue,
+    )
   }
 
   async send(messageOrText: PushoverMessage | string): Promise<PushoverResponse> {
     const message = this.normalizeMessage(messageOrText)
-
     MessageValidator.validate(message)
 
+    if (this.rateLimiter) {
+      await this.rateLimiter.acquire()
+    }
+
+    if (this.retryHandler) {
+      return this.retryHandler.execute(() => this.executeSend(message))
+    }
+
+    return this.executeSend(message)
+  }
+
+  message(text: string): MessageBuilder {
+    return new MessageBuilder(
+      (msg: PushoverMessage) => this.send(msg),
+      text,
+    )
+  }
+
+  queue(messageOrText: PushoverMessage | string): this {
+    this.messageQueue.add(messageOrText)
+    return this
+  }
+
+  async flush(): Promise<QueueResult> {
+    return this.messageQueue.flush()
+  }
+
+  get queueSize(): number {
+    return this.messageQueue.size
+  }
+
+  async limits(): Promise<PushoverLimitsResponse> {
+    return this.limitChecker.check()
+  }
+
+  async info(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
+    return this.sendSemantic('info', text, options)
+  }
+
+  async success(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
+    return this.sendSemantic('success', text, options)
+  }
+
+  async warning(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
+    return this.sendSemantic('warning', text, options)
+  }
+
+  async error(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
+    return this.sendSemantic('error', text, options)
+  }
+
+  async emergency(text: string, options?: PushoverEmergencyMessage): Promise<PushoverResponse> {
+    return this.sendSemantic('emergency', text, options)
+  }
+
+  private async executeSend(message: PushoverMessage): Promise<PushoverResponse> {
     const body = this.requestBuilder.build(message)
     const url = `${PUSHOVER_API_BASE_URL}${PUSHOVER_API_ENDPOINTS.MESSAGES}`
 
@@ -56,26 +130,6 @@ export class PushoverClient {
     }
 
     return data
-  }
-
-  async info(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
-    return this.sendSemantic('info', text, options)
-  }
-
-  async success(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
-    return this.sendSemantic('success', text, options)
-  }
-
-  async warning(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
-    return this.sendSemantic('warning', text, options)
-  }
-
-  async error(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {
-    return this.sendSemantic('error', text, options)
-  }
-
-  async emergency(text: string, options?: PushoverEmergencyMessage): Promise<PushoverResponse> {
-    return this.sendSemantic('emergency', text, options)
   }
 
   private sendSemantic(
