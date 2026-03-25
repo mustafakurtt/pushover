@@ -1,6 +1,6 @@
 {
   "name": "@mustafakurtt/pushover",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "Modern, TypeScript-first Pushover API client. Zero dependencies. Works with Bun & Node.js.",
   "type": "module",
   "main": "./dist/index.cjs",
