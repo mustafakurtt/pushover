@@ -47,6 +47,38 @@ describe('Conditional Sending (.onlyBetween)', () => {
     expect((result as PushoverResponse).status).toBe(1)
   })
 
+  it('should accept timezone parameter', async () => {
+    const { fetchFn, calls } = createSpyFetch()
+    const client = new PushoverClient({ ...VALID_CONFIG, fetchFn })
+
+    const result = await client
+      .message('Test')
+      .onlyBetween('00:00', '23:59', 'Europe/Istanbul')
+      .send()
+
+    expect(calls).toHaveLength(1)
+    expect((result as PushoverResponse).status).toBe(1)
+  })
+
+  it('should skip based on timezone when outside window', async () => {
+    const { fetchFn, calls } = createSpyFetch()
+    const client = new PushoverClient({ ...VALID_CONFIG, fetchFn })
+
+    // Use a timezone-aware window that's definitely in the past
+    const istanbulNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Istanbul' }))
+    const pastHour = (istanbulNow.getHours() + 22) % 24
+    const start = `${String(pastHour).padStart(2, '0')}:00`
+    const end = `${String(pastHour).padStart(2, '0')}:01`
+
+    const result = await client
+      .message('Test')
+      .onlyBetween(start, end, 'Europe/Istanbul')
+      .send()
+
+    expect(calls).toHaveLength(0)
+    expect((result as PushoverResponse).request).toBe('skipped:outside-time-window')
+  })
+
   it('should combine with other builder methods', async () => {
     const { fetchFn, calls } = createSpyFetch()
     const client = new PushoverClient({ ...VALID_CONFIG, fetchFn })

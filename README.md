@@ -257,7 +257,61 @@ await pushover
   .message('Batch job complete')
   .onlyBetween('22:00', '06:00')
   .send()
+
+// With timezone — critical for cloud/serverless deployments
+await pushover
+  .message('Report generated')
+  .onlyBetween('09:00', '18:00', 'Europe/Istanbul')
+  .send()
 ```
+
+> **Important:** Without a timezone parameter, `onlyBetween()` uses the server's local time. If your server runs in UTC (e.g. AWS, Vercel), always pass an explicit timezone to avoid unexpected behavior.
+
+### Image Attachments
+
+Send images with notifications (security cameras, charts, screenshots):
+
+```typescript
+// From a Blob
+const imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' })
+await pushover.send({
+  message: 'Motion detected!',
+  attachment: imageBlob,
+  attachmentName: 'front-door.jpg',
+})
+
+// From a Buffer / Uint8Array
+const screenshot = fs.readFileSync('/tmp/screenshot.png')
+await pushover.send({
+  message: 'Error screenshot',
+  attachment: screenshot,
+  attachmentName: 'error.png',
+})
+
+// Via fluent builder
+await pushover
+  .message('Camera alert')
+  .withAttachment(imageBlob, 'camera.jpg')
+  .send()
+```
+
+> Pushover supports JPEG, PNG, and GIF up to 2.5 MB. Attachments are sent as `multipart/form-data` automatically.
+
+### Response Limits (Zero-Cost)
+
+Every `send()` response now includes your remaining API quota — parsed from response headers at no extra API cost:
+
+```typescript
+const response = await pushover.send('Hello!')
+
+if (response.limits) {
+  console.log(response.limits.limit)      // 10000 (monthly max)
+  console.log(response.limits.remaining)  // 9543
+  console.log(response.limits.reset)      // Unix timestamp of reset
+}
+```
+
+> This is more efficient than calling `limits()` separately, which makes a dedicated API request.
 
 ### Delivery Groups (Multi-User)
 
@@ -445,10 +499,12 @@ Accepts a `string` or a `PushoverMessage` object:
 | `timestamp` | `number` | No | Unix timestamp |
 | `retry` | `number` | No | Emergency retry interval (sec, min 30) |
 | `expire` | `number` | No | Emergency expiry (sec, max 10800) |
+| `attachment` | `Blob \| Buffer \| Uint8Array` | No | Image attachment (max 2.5 MB) |
+| `attachmentName` | `string` | No | Filename for the attachment |
 
 ### `message(text)` → `MessageBuilder`
 
-Fluent builder methods: `.title()`, `.to(...devices)`, `.toGroup(name)`, `.withSound()`, `.withPriority()`, `.withUrl()`, `.html()`, `.timestamp()`, `.retry()`, `.expire()`, `.onlyBetween(start, end)`, `.send()`
+Fluent builder methods: `.title()`, `.to(...devices)`, `.toGroup(name)`, `.withSound()`, `.withPriority()`, `.withUrl()`, `.html()`, `.timestamp()`, `.retry()`, `.expire()`, `.withAttachment(data, filename?)`, `.onlyBetween(start, end, timezone?)`, `.send()`
 
 ### `template(name, text)`
 
@@ -512,6 +568,12 @@ Get all registered devices for a user.
 ### `notify(config, message)`
 
 Standalone function — creates a client and sends in one call.
+
+## Serverless & Stateless Environments
+
+> **⚠️ Important:** The `queue()`, `rateLimit`, and `retry` features use **in-memory state**. In serverless environments (Vercel, AWS Lambda, Cloudflare Workers), each invocation runs in a fresh context — queued messages may be lost, rate-limit counters will reset per invocation, and retry state won't persist across calls.
+>
+> **Recommendation:** In serverless, use `send()` directly (it's stateless) and rely on `response.limits` for quota tracking. Queue and rate limiting are designed for **long-lived Node.js/Bun servers**.
 
 ## Requirements
 

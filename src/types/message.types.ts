@@ -12,6 +12,8 @@ export interface PushoverMessage {
   timestamp?: number
   retry?: number
   expire?: number
+  attachment?: Blob | Buffer | Uint8Array
+  attachmentName?: string
 }
 
 export interface PushoverShortMessage {

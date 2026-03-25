@@ -74,8 +74,14 @@ export class MessageBuilder {
     return this
   }
 
-  onlyBetween(start: string, end: string): this {
-    this.timeWindow = { start, end }
+  withAttachment(data: Blob | Buffer | Uint8Array, filename?: string): this {
+    this.message.attachment = data
+    if (filename !== undefined) this.message.attachmentName = filename
+    return this
+  }
+
+  onlyBetween(start: string, end: string, timezone?: string): this {
+    this.timeWindow = { start, end, timezone }
     return this
   }
 
@@ -115,7 +121,9 @@ export class MessageBuilder {
   }
 
   private isWithinTimeWindow(window: TimeWindow): boolean {
-    const now = new Date()
+    const now = window.timezone
+      ? new Date(new Date().toLocaleString('en-US', { timeZone: window.timezone }))
+      : new Date()
     const currentMinutes = now.getHours() * 60 + now.getMinutes()
 
     const [startH, startM] = window.start.split(':').map(Number) as [number, number]

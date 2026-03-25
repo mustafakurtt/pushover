@@ -3,4 +3,9 @@ export interface PushoverResponse {
   request: string
   errors?: string[]
   receipt?: string
+  limits?: {
+    limit: number
+    remaining: number
+    reset: number
+  }
 }

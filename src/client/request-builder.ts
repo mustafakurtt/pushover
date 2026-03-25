@@ -34,6 +34,28 @@ export class RequestBuilder {
     return this.removeUndefined(body)
   }
 
+  buildFormData(message: PushoverMessage): FormData {
+    const fields = this.build(message)
+    const formData = new FormData()
+
+    for (const [key, value] of Object.entries(fields)) {
+      formData.append(key, String(value))
+    }
+
+    if (message.attachment) {
+      const blob = message.attachment instanceof Blob
+        ? message.attachment
+        : new Blob([message.attachment], { type: 'image/png' })
+      formData.append('attachment', blob, message.attachmentName ?? 'image.png')
+    }
+
+    return formData
+  }
+
+  hasAttachment(message: PushoverMessage): boolean {
+    return message.attachment !== undefined
+  }
+
   private removeUndefined(obj: Record<string, unknown>): Record<string, unknown> {
     return Object.fromEntries(Object.entries(obj).filter(([, value]) => value !== undefined))
   }

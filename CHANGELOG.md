@@ -6,8 +6,24 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-## [0.5.0] — 2026-03-25
+## [0.6.0] — 2026-03-25
 
+### Added
+- **Image Attachments** — `attachment` field + `.withAttachment(data, filename?)` in builder; auto `multipart/form-data` when attachment present
+- **Timezone Support** — `.onlyBetween('09:00', '18:00', 'Europe/Istanbul')` — IANA timezone for cloud/serverless accuracy
+- **Response Header Limits** — `send()` now returns `response.limits` (`limit`, `remaining`, `reset`) parsed from Pushover response headers at zero extra API cost
+- **Serverless Documentation** — explicit guidance for queue/rateLimit/retry behavior in stateless environments (Vercel, Lambda, Workers)
+- `RequestBuilder.buildFormData()` and `hasAttachment()` for multipart support
+- 189 unit tests (up from 172) — attachment, timezone, header limits fully tested
+
+### Changed
+- `executeSend()` auto-detects attachment and switches between JSON and FormData
+- `PushoverResponse.limits` field added (optional, populated from headers)
+- `TimeWindow.timezone` field added (optional IANA timezone string)
+- `PushoverMessage.attachment` and `attachmentName` fields added
+
+## [0.5.0] — 2026-03-25
+  
 ### Added
 - **Receipt Tracking** — `pushover.receipt(id)` returns `ReceiptTracker` with `status()`, `cancel()`, `isAcknowledged`, `isExpired`, `waitForAcknowledgement()`
 - **User Validation** — `validateUser()`, `isValidUser()`, `getUserDevices()` via Pushover `/users/validate.json` API
@@ -26,7 +42,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - `GroupUser`, `GroupInfo`, `AddUserOptions`, `GroupActionResponse` types
 - Group API endpoints: info, add_user, delete_user, disable_user, enable_user, rename
 - 139 unit tests (up from 115) — GroupManager + client integration fully tested
-
+  
 ## [0.3.0] — 2026-03-25
 
 ### Added

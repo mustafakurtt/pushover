@@ -183,15 +183,21 @@ export class PushoverClient {
   }
 
   private async executeSend(message: PushoverMessage): Promise<PushoverResponse> {
-    const body = this.requestBuilder.build(message)
     const url = `${PUSHOVER_API_BASE_URL}${PUSHOVER_API_ENDPOINTS.MESSAGES}`
+    const useFormData = this.requestBuilder.hasAttachment(message)
 
-    const response = await this.fetchFn(url, {
-      method: 'POST',
-      headers: HTTP_HEADERS.CONTENT_TYPE,
-      body: JSON.stringify(body),
-    })
+    const requestInit: RequestInit = useFormData
+      ? {
+          method: 'POST',
+          body: this.requestBuilder.buildFormData(message),
+        }
+      : {
+          method: 'POST',
+          headers: HTTP_HEADERS.CONTENT_TYPE,
+          body: JSON.stringify(this.requestBuilder.build(message)),
+        }
 
+    const response = await this.fetchFn(url, requestInit)
     const data = (await response.json()) as PushoverResponse
 
     if (data.status !== API_SUCCESS_STATUS) {
@@ -201,6 +207,18 @@ export class PushoverClient {
         data.request,
         data.errors,
       )
+    }
+
+    const limitHeader = response.headers?.get?.('X-Limit-App-Limit')
+    const remainingHeader = response.headers?.get?.('X-Limit-App-Remaining')
+    const resetHeader = response.headers?.get?.('X-Limit-App-Reset')
+
+    if (limitHeader && remainingHeader && resetHeader) {
+      data.limits = {
+        limit: Number(limitHeader),
+        remaining: Number(remainingHeader),
+        reset: Number(resetHeader),
+      }
     }
 
     return data
