@@ -1,0 +1,63 @@
+{
+  "name": "@mustafakurtt/pushover",
+  "version": "0.0.0",
+  "description": "Modern, TypeScript-first Pushover API client. Zero dependencies. Works with Bun & Node.js.",
+  "type": "module",
+  "main": "./dist/index.cjs",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      }
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "test": "bun test",
+    "test:coverage": "bun test --coverage",
+    "typecheck": "tsc --noEmit",
+    "prepublishOnly": "bun run build"
+  },
+  "keywords": [
+    "pushover",
+    "notification",
+    "push",
+    "alert",
+    "messaging",
+    "api",
+    "typescript",
+    "bun"
+  ],
+  "author": "Mustafa Kurt",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mustafakurtt/pushover.git"
+  },
+  "bugs": {
+    "url": "https://github.com/mustafakurtt/pushover/issues"
+  },
+  "homepage": "https://github.com/mustafakurtt/pushover#readme",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "tsup": "^8.0.0",
+    "typescript": "^5.0.0"
+  }
+}
