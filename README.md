@@ -16,6 +16,7 @@ Other Pushover packages are just thin wrappers — you still write the same boil
 - **Device groups** — define named groups, send with `.toGroup('mobile')`
 - **Templates** — reusable message presets: `.template('deploy', 'v2.0 shipped!')`
 - **Conditional sending** — `.onlyBetween('09:00', '18:00')` — time-based filtering
+- **Delivery groups** — full group management API: add/remove/enable/disable users, rename, list
 - **String shorthand** — `pushover.send('Deploy done!')` — no object needed
 - **One-liner `notify()`** — fire-and-forget without creating a client instance
 - **Factory function** — `createPushover()` — no `new` keyword
@@ -256,6 +257,45 @@ await pushover
   .send()
 ```
 
+### Delivery Groups (Multi-User)
+
+Manage Pushover Delivery Groups via API — add/remove friends, enable/disable users, rename groups:
+
+```typescript
+const pushover = createPushover({
+  token: 'YOUR_APP_TOKEN',
+  user: 'YOUR_USER_KEY',
+})
+
+const team = pushover.group('DELIVERY_GROUP_KEY')
+
+// Get group info & members
+const info = await team.info()
+console.log(info.name)   // "Project Team"
+console.log(info.users)  // [{ user: '...', memo: 'Mustafa', ... }, ...]
+
+// Add a friend to the group
+await team.addUser({
+  user: 'FRIEND_USER_KEY',
+  memo: 'Ali',
+  device: 'iphone',       // optional: target specific device
+})
+
+// Remove, disable, enable users
+await team.removeUser('FRIEND_USER_KEY')
+await team.disableUser('FRIEND_USER_KEY')
+await team.enableUser('FRIEND_USER_KEY')
+
+// Rename the group
+await team.rename('Dev Team')
+
+// Helper methods
+const users = await team.listUsers()
+const exists = await team.hasUser('FRIEND_USER_KEY')
+```
+
+> **Tip:** To send notifications to the entire group, use the group key as the `user` parameter in your config. Pushover delivers to all group members automatically.
+
 ### Default Config
 
 ```typescript
@@ -373,6 +413,21 @@ Queue messages and send them in batch. Returns `QueueResult` with `succeeded` an
 ### `limits()`
 
 Returns `PushoverLimitsResponse` with `limit`, `remaining`, and `reset` fields.
+
+### `group(groupKey)` → `GroupManager`
+
+Full Delivery Group management:
+
+| Method | Description |
+|--------|-------------|
+| `.info()` | Get group name and member list |
+| `.addUser({ user, device?, memo? })` | Add a user to the group |
+| `.removeUser(userKey)` | Remove a user from the group |
+| `.disableUser(userKey)` | Temporarily disable a user |
+| `.enableUser(userKey)` | Re-enable a disabled user |
+| `.rename(name)` | Rename the delivery group |
+| `.listUsers()` | Shorthand for `info().users` |
+| `.hasUser(userKey)` | Check if a user is in the group |
 
 ### `notify(config, message)`
 

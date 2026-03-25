@@ -5,6 +5,7 @@ export {
   RetryHandler,
   RateLimiter,
   LimitChecker,
+  GroupManager,
 } from './client/index.ts'
 export { createPushover, notify } from './factory/index.ts'
 
@@ -48,4 +49,8 @@ export type {
   MessageTemplate,
   TemplateMap,
   TimeWindow,
+  GroupUser,
+  GroupInfo,
+  AddUserOptions,
+  GroupActionResponse,
 } from './types/index.ts'

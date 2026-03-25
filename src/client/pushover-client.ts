@@ -24,6 +24,7 @@ import { RateLimiter } from './rate-limiter.ts'
 import { MessageBuilder } from './message-builder.ts'
 import { MessageQueue } from './message-queue.ts'
 import { LimitChecker } from './limit-checker.ts'
+import { GroupManager } from './group-manager.ts'
 
 export class PushoverClient {
   private readonly requestBuilder: RequestBuilder
@@ -34,10 +35,12 @@ export class PushoverClient {
   private readonly messageQueue: MessageQueue
   private readonly deviceGroups: DeviceGroupMap
   private readonly templates: TemplateMap
+  private readonly token: string
 
   constructor(config: PushoverConfig) {
     ConfigValidator.validate(config)
 
+    this.token = config.token
     this.fetchFn = config.fetchFn ?? globalThis.fetch.bind(globalThis)
     this.requestBuilder = new RequestBuilder(config.token, config.user, {
       device: config.defaultDevice,
@@ -133,6 +136,10 @@ export class PushoverClient {
 
   async limits(): Promise<PushoverLimitsResponse> {
     return this.limitChecker.check()
+  }
+
+  group(groupKey: string): GroupManager {
+    return new GroupManager(this.token, groupKey, this.fetchFn)
   }
 
   async info(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {

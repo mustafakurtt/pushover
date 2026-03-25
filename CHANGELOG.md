@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-03-25
+
+### Added
+- **Delivery Group Management** — full Pushover Group API support via `pushover.group(key)`
+- `GroupManager` class with `info()`, `addUser()`, `removeUser()`, `disableUser()`, `enableUser()`, `rename()`, `listUsers()`, `hasUser()`
+- `GroupUser`, `GroupInfo`, `AddUserOptions`, `GroupActionResponse` types
+- Group API endpoints: info, add_user, delete_user, disable_user, enable_user, rename
+- 139 unit tests (up from 115) — GroupManager + client integration fully tested
+
 ## [0.3.0] — 2026-03-25
 
 ### Added
