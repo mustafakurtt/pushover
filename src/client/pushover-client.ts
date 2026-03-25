@@ -6,6 +6,7 @@ import {
   SEMANTIC_METHOD_CONFIG,
 } from '../constants/index.ts'
 import { PushoverApiError } from '../errors/api.error.ts'
+import { PushoverValidationError } from '../errors/validation.error.ts'
 import type { PushoverConfig } from '../types/config.types.ts'
 import type { PushoverEmergencyMessage, PushoverMessage, PushoverShortMessage } from '../types/message.types.ts'
 import type { PushoverResponse } from '../types/response.types.ts'
@@ -13,6 +14,8 @@ import type { FetchFunction } from '../types/common.types.ts'
 import type { SemanticLevel } from '../types/semantic.types.ts'
 import type { PushoverLimitsResponse } from '../types/limits.types.ts'
 import type { QueueResult } from '../types/queue.types.ts'
+import type { DeviceGroupMap, MultiDeviceResult } from '../types/device-group.types.ts'
+import type { TemplateMap } from '../types/template.types.ts'
 import { ConfigValidator } from '../validators/config.validator.ts'
 import { MessageValidator } from '../validators/message.validator.ts'
 import { RequestBuilder } from './request-builder.ts'
@@ -29,6 +32,8 @@ export class PushoverClient {
   private readonly rateLimiter: RateLimiter | null
   private readonly limitChecker: LimitChecker
   private readonly messageQueue: MessageQueue
+  private readonly deviceGroups: DeviceGroupMap
+  private readonly templates: TemplateMap
 
   constructor(config: PushoverConfig) {
     ConfigValidator.validate(config)
@@ -47,6 +52,8 @@ export class PushoverClient {
       (msg: PushoverMessage) => this.executeSend(msg),
       config.queue,
     )
+    this.deviceGroups = config.deviceGroups ?? {}
+    this.templates = config.templates ?? {}
   }
 
   async send(messageOrText: PushoverMessage | string): Promise<PushoverResponse> {
@@ -68,7 +75,47 @@ export class PushoverClient {
     return new MessageBuilder(
       (msg: PushoverMessage) => this.send(msg),
       text,
+      (groupName: string) => this.resolveDeviceGroup(groupName),
     )
+  }
+
+  async template(templateName: string, text: string): Promise<PushoverResponse> {
+    const tmpl = this.templates[templateName]
+    if (!tmpl) {
+      throw new PushoverValidationError(
+        `Template "${templateName}" not found. Available: ${Object.keys(this.templates).join(', ') || 'none'}`,
+        'template',
+      )
+    }
+
+    return this.send({ ...tmpl, message: text })
+  }
+
+  async sendToDevices(messageOrText: PushoverMessage | string, devices: string[]): Promise<MultiDeviceResult[]> {
+    const message = this.normalizeMessage(messageOrText)
+    MessageValidator.validate(message)
+
+    const results: MultiDeviceResult[] = []
+
+    for (const device of devices) {
+      try {
+        const response = await this.send({ ...message, device })
+        results.push({ device, success: true, response })
+      } catch (error) {
+        results.push({
+          device,
+          success: false,
+          error: error instanceof Error ? error : new Error(String(error)),
+        })
+      }
+    }
+
+    return results
+  }
+
+  async sendToGroup(messageOrText: PushoverMessage | string, groupName: string): Promise<MultiDeviceResult[]> {
+    const devices = this.resolveDeviceGroup(groupName)
+    return this.sendToDevices(messageOrText, devices)
   }
 
   queue(messageOrText: PushoverMessage | string): this {
@@ -148,6 +195,17 @@ export class PushoverClient {
       ...(config.retry !== undefined && { retry: (options as PushoverEmergencyMessage)?.retry ?? config.retry }),
       ...(config.expire !== undefined && { expire: (options as PushoverEmergencyMessage)?.expire ?? config.expire }),
     })
+  }
+
+  private resolveDeviceGroup(groupName: string): string[] {
+    const devices = this.deviceGroups[groupName]
+    if (!devices || devices.length === 0) {
+      throw new PushoverValidationError(
+        `Device group "${groupName}" not found. Available: ${Object.keys(this.deviceGroups).join(', ') || 'none'}`,
+        'deviceGroup',
+      )
+    }
+    return devices
   }
 
   private normalizeMessage(messageOrText: PushoverMessage | string): PushoverMessage {

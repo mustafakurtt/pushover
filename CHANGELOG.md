@@ -6,6 +6,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.3.0] — 2026-03-25
+
+### Added
+- **Multi-Device Targeting** — `sendToDevices(msg, ['iphone', 'pixel'])` and `.to('iphone', 'pixel')` in builder
+- **Device Groups** — `deviceGroups` config option + `sendToGroup(msg, 'mobile')` + `.toGroup('mobile')` in builder
+- **Template Messages** — `templates` config option + `template('deploy', 'v2.0 shipped!')` method
+- **Conditional Sending** — `.onlyBetween('09:00', '18:00')` time-based message filtering in builder
+- `DeviceGroupMap`, `MultiDeviceResult`, `TemplateMap`, `MessageTemplate`, `TimeWindow` types
+- 115 unit tests (up from 95) — all new features fully tested
+
 ## [0.2.0] — 2026-03-25
 
 ### Added

@@ -43,4 +43,9 @@ export type {
   QueueResult,
   QueueFailedItem,
   PushoverLimitsResponse,
+  DeviceGroupMap,
+  MultiDeviceResult,
+  MessageTemplate,
+  TemplateMap,
+  TimeWindow,
 } from './types/index.ts'

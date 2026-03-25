@@ -12,6 +12,10 @@ Other Pushover packages are just thin wrappers — you still write the same boil
 - **Rate limiting** — built-in sliding window protection
 - **Auto-retry** — exponential backoff on failures
 - **Limit checker** — check your remaining monthly quota via API
+- **Multi-device** — `.to('iphone', 'pixel')` or `.sendToDevices()` — one call, multiple devices
+- **Device groups** — define named groups, send with `.toGroup('mobile')`
+- **Templates** — reusable message presets: `.template('deploy', 'v2.0 shipped!')`
+- **Conditional sending** — `.onlyBetween('09:00', '18:00')` — time-based filtering
 - **String shorthand** — `pushover.send('Deploy done!')` — no object needed
 - **One-liner `notify()`** — fire-and-forget without creating a client instance
 - **Factory function** — `createPushover()` — no `new` keyword
@@ -178,6 +182,80 @@ console.log(limits.remaining) // 9500  (remaining this month)
 console.log(limits.reset)     // Unix timestamp when limit resets
 ```
 
+### Multi-Device Targeting
+
+Send to multiple devices in one call:
+
+```typescript
+// Via method
+const results = await pushover.sendToDevices('Alert!', ['iphone', 'pixel', 'desktop'])
+
+results.forEach(r => {
+  console.log(`${r.device}: ${r.success ? 'sent' : r.error?.message}`)
+})
+
+// Via fluent builder
+await pushover.message('Server down!').to('iphone', 'pixel').send()
+```
+
+### Device Groups
+
+Define named device groups in config:
+
+```typescript
+const pushover = createPushover({
+  token: 'YOUR_APP_TOKEN',
+  user: 'YOUR_USER_KEY',
+  deviceGroups: {
+    mobile: ['iphone', 'pixel'],
+    all: ['iphone', 'pixel', 'desktop'],
+  },
+})
+
+// Send to a group
+await pushover.sendToGroup('Alert!', 'mobile')
+
+// Or via builder
+await pushover.message('Alert!').toGroup('all').send()
+```
+
+### Template Messages
+
+Define reusable message presets:
+
+```typescript
+const pushover = createPushover({
+  token: 'YOUR_APP_TOKEN',
+  user: 'YOUR_USER_KEY',
+  templates: {
+    deploy: { title: 'Deploy', sound: 'magic', priority: 0 },
+    alert: { title: 'ALERT', sound: 'siren', priority: 1 },
+    monitoring: { title: 'Monitor', url: 'https://grafana.example.com', urlTitle: 'Open Grafana' },
+  },
+})
+
+await pushover.template('deploy', 'v2.1.0 deployed to production')
+await pushover.template('alert', 'CPU at 99%')
+```
+
+### Conditional Sending (Time-Based)
+
+Send notifications only during specific hours:
+
+```typescript
+// Only send during business hours
+await pushover
+  .message('Report generated')
+  .onlyBetween('09:00', '18:00')
+  .send()
+
+// Overnight window also works (e.g. night shift)
+await pushover
+  .message('Batch job complete')
+  .onlyBetween('22:00', '06:00')
+  .send()
+```
+
 ### Default Config
 
 ```typescript
@@ -251,6 +329,8 @@ All semantic methods accept an optional second argument to override any field.
 | `retry` | `RetryConfig` | No | Auto-retry configuration |
 | `rateLimit` | `RateLimitConfig` | No | Rate limiting configuration |
 | `queue` | `QueueConfig` | No | Message queue configuration |
+| `deviceGroups` | `DeviceGroupMap` | No | Named device groups |
+| `templates` | `TemplateMap` | No | Reusable message presets |
 
 ### `send(message)`
 
@@ -272,7 +352,19 @@ Accepts a `string` or a `PushoverMessage` object:
 
 ### `message(text)` → `MessageBuilder`
 
-Fluent builder methods: `.title()`, `.to()`, `.withSound()`, `.withPriority()`, `.withUrl()`, `.html()`, `.timestamp()`, `.retry()`, `.expire()`, `.send()`
+Fluent builder methods: `.title()`, `.to(...devices)`, `.toGroup(name)`, `.withSound()`, `.withPriority()`, `.withUrl()`, `.html()`, `.timestamp()`, `.retry()`, `.expire()`, `.onlyBetween(start, end)`, `.send()`
+
+### `template(name, text)`
+
+Send using a predefined template. Templates are defined in config.
+
+### `sendToDevices(message, devices)`
+
+Send to multiple devices. Returns `MultiDeviceResult[]` with per-device success/failure.
+
+### `sendToGroup(message, groupName)`
+
+Send to a named device group. Groups are defined in config.
 
 ### `queue(message)` / `flush()`
 
