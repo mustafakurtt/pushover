@@ -6,6 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] — 2026-03-25
+
+### Added
+- **Receipt Tracking** — `pushover.receipt(id)` returns `ReceiptTracker` with `status()`, `cancel()`, `isAcknowledged`, `isExpired`, `waitForAcknowledgement()`
+- **User Validation** — `validateUser()`, `isValidUser()`, `getUserDevices()` via Pushover `/users/validate.json` API
+- `ReceiptTracker` class with polling, timeout, and expiration handling
+- `UserValidator` class with `validate()`, `isValid()`, `getDevices()`, `isGroup()`
+- `ReceiptStatus`, `ReceiptCancelResponse`, `ReceiptPollOptions`, `UserValidationRequest`, `UserValidationResponse` types
+- Receipt and User Validation API endpoints
+- 172 unit tests (up from 139) — all new features fully tested
+- **Full Pushover API coverage** — every available endpoint is now supported
+
 ## [0.4.0] — 2026-03-25
 
 ### Added

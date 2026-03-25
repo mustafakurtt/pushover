@@ -6,6 +6,8 @@ export {
   RateLimiter,
   LimitChecker,
   GroupManager,
+  ReceiptTracker,
+  UserValidator,
 } from './client/index.ts'
 export { createPushover, notify } from './factory/index.ts'
 
@@ -53,4 +55,9 @@ export type {
   GroupInfo,
   AddUserOptions,
   GroupActionResponse,
+  ReceiptStatus,
+  ReceiptCancelResponse,
+  ReceiptPollOptions,
+  UserValidationRequest,
+  UserValidationResponse,
 } from './types/index.ts'

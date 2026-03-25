@@ -9,6 +9,10 @@ export const PUSHOVER_API_ENDPOINTS = {
   GROUP_DISABLE_USER: '/groups/{group_key}/disable_user.json',
   GROUP_ENABLE_USER: '/groups/{group_key}/enable_user.json',
   GROUP_RENAME: '/groups/{group_key}/rename.json',
+  RECEIPT_STATUS: '/receipts/{receipt}.json',
+  RECEIPT_CANCEL: '/receipts/{receipt}/cancel.json',
+  USER_VALIDATE: '/users/validate.json',
+  SOUNDS: '/sounds.json',
 } as const
 
 export const HTTP_HEADERS = {

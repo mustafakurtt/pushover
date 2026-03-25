@@ -25,6 +25,8 @@ import { MessageBuilder } from './message-builder.ts'
 import { MessageQueue } from './message-queue.ts'
 import { LimitChecker } from './limit-checker.ts'
 import { GroupManager } from './group-manager.ts'
+import { ReceiptTracker } from './receipt-tracker.ts'
+import { UserValidator } from './user-validator.ts'
 
 export class PushoverClient {
   private readonly requestBuilder: RequestBuilder
@@ -36,6 +38,7 @@ export class PushoverClient {
   private readonly deviceGroups: DeviceGroupMap
   private readonly templates: TemplateMap
   private readonly token: string
+  private readonly userValidator: UserValidator
 
   constructor(config: PushoverConfig) {
     ConfigValidator.validate(config)
@@ -57,6 +60,7 @@ export class PushoverClient {
     )
     this.deviceGroups = config.deviceGroups ?? {}
     this.templates = config.templates ?? {}
+    this.userValidator = new UserValidator(config.token, this.fetchFn)
   }
 
   async send(messageOrText: PushoverMessage | string): Promise<PushoverResponse> {
@@ -140,6 +144,22 @@ export class PushoverClient {
 
   group(groupKey: string): GroupManager {
     return new GroupManager(this.token, groupKey, this.fetchFn)
+  }
+
+  receipt(receiptId: string): ReceiptTracker {
+    return new ReceiptTracker(this.token, receiptId, this.fetchFn)
+  }
+
+  async validateUser(userKey: string, device?: string) {
+    return this.userValidator.validate(userKey, device)
+  }
+
+  async isValidUser(userKey: string): Promise<boolean> {
+    return this.userValidator.isValid(userKey)
+  }
+
+  async getUserDevices(userKey: string): Promise<string[]> {
+    return this.userValidator.getDevices(userKey)
   }
 
   async info(text: string, options?: PushoverShortMessage): Promise<PushoverResponse> {

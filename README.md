@@ -17,6 +17,8 @@ Other Pushover packages are just thin wrappers — you still write the same boil
 - **Templates** — reusable message presets: `.template('deploy', 'v2.0 shipped!')`
 - **Conditional sending** — `.onlyBetween('09:00', '18:00')` — time-based filtering
 - **Delivery groups** — full group management API: add/remove/enable/disable users, rename, list
+- **Receipt tracking** — track emergency notifications: acknowledged? expired? cancel & poll
+- **User validation** — verify user keys, list devices, detect groups
 - **String shorthand** — `pushover.send('Deploy done!')` — no object needed
 - **One-liner `notify()`** — fire-and-forget without creating a client instance
 - **Factory function** — `createPushover()` — no `new` keyword
@@ -296,6 +298,60 @@ const exists = await team.hasUser('FRIEND_USER_KEY')
 
 > **Tip:** To send notifications to the entire group, use the group key as the `user` parameter in your config. Pushover delivers to all group members automatically.
 
+### Receipt Tracking (Emergency)
+
+Track and manage emergency (priority=2) notifications:
+
+```typescript
+// Send emergency → returns receipt
+const response = await pushover.emergency('All servers down!', {
+  retry: 30,
+  expire: 3600,
+})
+
+// Track the receipt
+const tracker = pushover.receipt(response.receipt!)
+
+// Check status
+const status = await tracker.status()
+console.log(status.acknowledged)      // 0 or 1
+console.log(status.acknowledged_by)   // user key who acknowledged
+console.log(status.expired)           // 0 or 1
+
+// Convenience getters
+if (await tracker.isAcknowledged) console.log('Someone acknowledged!')
+if (await tracker.isExpired) console.log('Nobody responded...')
+
+// Cancel the emergency repeat
+await tracker.cancel()
+
+// Or poll until someone acknowledges (with timeout)
+const ack = await tracker.waitForAcknowledgement({
+  intervalMs: 5000,   // check every 5s (default)
+  timeoutMs: 300000,  // give up after 5min (default)
+})
+console.log(`Acknowledged by ${ack.acknowledged_by} on ${ack.acknowledged_by_device}`)
+```
+
+### User Validation
+
+Verify user/group keys and discover devices before sending:
+
+```typescript
+// Full validation
+const result = await pushover.validateUser('USER_KEY')
+console.log(result.devices)   // ['iphone', 'pixel']
+console.log(result.group)     // 0 (user) or 1 (group)
+console.log(result.licenses)  // ['ios', 'android']
+
+// Validate specific device
+await pushover.validateUser('USER_KEY', 'iphone')
+
+// Simple checks
+const valid = await pushover.isValidUser('USER_KEY')       // true/false
+const devices = await pushover.getUserDevices('USER_KEY')   // string[]
+```
+
 ### Default Config
 
 ```typescript
@@ -428,6 +484,30 @@ Full Delivery Group management:
 | `.rename(name)` | Rename the delivery group |
 | `.listUsers()` | Shorthand for `info().users` |
 | `.hasUser(userKey)` | Check if a user is in the group |
+
+### `receipt(receiptId)` → `ReceiptTracker`
+
+Track emergency notifications:
+
+| Method | Description |
+|--------|-------------|
+| `.status()` | Get full receipt status (acknowledged, expired, etc.) |
+| `.cancel()` | Cancel the emergency notification repeat |
+| `.isAcknowledged` | `Promise<boolean>` — was it acknowledged? |
+| `.isExpired` | `Promise<boolean>` — did it expire? |
+| `.waitForAcknowledgement(options?)` | Poll until acknowledged, expired, or timeout |
+
+### `validateUser(userKey, device?)`
+
+Validate a user/group key. Returns `UserValidationResponse` with `devices`, `group`, `licenses`.
+
+### `isValidUser(userKey)` → `Promise<boolean>`
+
+Quick check if a user key is valid.
+
+### `getUserDevices(userKey)` → `Promise<string[]>`
+
+Get all registered devices for a user.
 
 ### `notify(config, message)`
 
